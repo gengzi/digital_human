@@ -1,0 +1,7 @@
+{
+  "name": "Gemini 3D Digital Human",
+  "description": "Interactive 3D Avatar powered by Gemini Live API with text and voice capabilities.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
