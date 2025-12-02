@@ -108,7 +108,8 @@ export const Avatar: React.FC<AvatarProps> = ({ url, audioLevel, onControlsReady
         name,
         setRotation: (axis, valueInDegrees) => {
           if (bone) {
-            bone.rotation[axis] = MathUtils.degToRad(valueInDegrees);
+            // FIX: Cast `bone` to the `Bone` type to resolve the 'unknown' type error and allow accessing the `rotation` property.
+            (bone as Bone).rotation[axis] = MathUtils.degToRad(valueInDegrees);
           }
         },
       }));
@@ -159,47 +160,73 @@ export const Avatar: React.FC<AvatarProps> = ({ url, audioLevel, onControlsReady
                 if (idx !== undefined) headMesh.morphTargetInfluences![idx] = value;
             });
         }
+        
+        // --- Dynamic Expressions while Talking ---
+        const expressionTargets = {
+            browInnerUp: Math.sin(t * 1.5) * 0.1 + 0.1,
+            cheekSquintLeft: Math.sin(t * 2.1) * 0.1 + 0.1,
+            cheekSquintRight: Math.sin(t * 2.3) * 0.1 + 0.1,
+        };
+
+        Object.entries(expressionTargets).forEach(([name, targetValue]) => {
+            const idx = headMesh.morphTargetDictionary![name];
+            if (idx !== undefined) {
+                const currentValue = headMesh.morphTargetInfluences![idx];
+                const finalValue = isTalking ? targetValue : 0;
+                headMesh.morphTargetInfluences![idx] = MathUtils.lerp(currentValue, finalValue, 0.1);
+            }
+        });
     }
 
     const isAnyAnimPlaying = names.some(n => actions[n]?.isRunning() && actions[n]!.getEffectiveWeight() > 0.1);
 
     if (!isAnyAnimPlaying && !isDebuggingBones) {
         const LERP_SPEED = 0.1;
-        const breath = Math.sin(t * 1.5);
-        const gesture = Math.sin(t * 0.4) * 0.1; // Slow, subtle hand gesture
+        
+        // --- Shared Idle/Breathing Motion ---
+        const breath = Math.sin(t * 1.5) * 0.01;
+        if (bones.spine) {
+             bones.spine.rotation.x = MathUtils.lerp(bones.spine.rotation.x, breath, LERP_SPEED);
+        }
+        if (bones.head) {
+             bones.head.rotation.x = MathUtils.lerp(bones.head.rotation.x, breath * 2, LERP_SPEED);
+             bones.head.rotation.y = MathUtils.lerp(bones.head.rotation.y, Math.sin(t * 0.5) * 0.05, LERP_SPEED);
+        }
+
+        // --- Talking vs. Idle Hand Gestures ---
+        let lArm = { x: 61, y: -20, z: -8 };
+        let lForeArm = { z: 15 };
+        let rArm = { x: 61, y: 20, z: 14 };
+        let rForeArm = { z: -15 };
+
+        if (isTalking) {
+            const gestureTime = t * 1.2;
+            rArm.x = 40 + Math.sin(gestureTime) * 10;
+            rArm.y = 25 + Math.cos(gestureTime * 0.8) * 5;
+            rArm.z = -10 + Math.sin(gestureTime) * 15;
+            rForeArm.z = -40 + Math.cos(gestureTime * 1.2) * 20;
+
+            lArm.x = 50 + Math.sin(gestureTime * 0.7) * 5;
+            lArm.z = -5 + Math.cos(gestureTime * 0.9) * 5;
+            lForeArm.z = 20;
+        }
 
         if (bones.leftArm) {
-          bones.leftArm.rotation.x = MathUtils.lerp(bones.leftArm.rotation.x, MathUtils.degToRad(61), LERP_SPEED);
-          bones.leftArm.rotation.y = MathUtils.lerp(bones.leftArm.rotation.y, MathUtils.degToRad(-20), LERP_SPEED);
-          bones.leftArm.rotation.z = MathUtils.lerp(bones.leftArm.rotation.z, MathUtils.degToRad(-8), LERP_SPEED);
+          bones.leftArm.rotation.x = MathUtils.lerp(bones.leftArm.rotation.x, MathUtils.degToRad(lArm.x), LERP_SPEED);
+          bones.leftArm.rotation.y = MathUtils.lerp(bones.leftArm.rotation.y, MathUtils.degToRad(lArm.y), LERP_SPEED);
+          bones.leftArm.rotation.z = MathUtils.lerp(bones.leftArm.rotation.z, MathUtils.degToRad(lArm.z), LERP_SPEED);
         }
         if (bones.leftForeArm) {
-            bones.leftForeArm.rotation.z = MathUtils.lerp(bones.leftForeArm.rotation.z, MathUtils.degToRad(15) + gesture, LERP_SPEED);
+            bones.leftForeArm.rotation.z = MathUtils.lerp(bones.leftForeArm.rotation.z, MathUtils.degToRad(lForeArm.z), LERP_SPEED);
         }
         
         if (bones.rightArm) {
-          bones.rightArm.rotation.x = MathUtils.lerp(bones.rightArm.rotation.x, MathUtils.degToRad(61), LERP_SPEED);
-          bones.rightArm.rotation.y = MathUtils.lerp(bones.rightArm.rotation.y, MathUtils.degToRad(20), LERP_SPEED);
-          bones.rightArm.rotation.z = MathUtils.lerp(bones.rightArm.rotation.z, MathUtils.degToRad(14), LERP_SPEED);
+          bones.rightArm.rotation.x = MathUtils.lerp(bones.rightArm.rotation.x, MathUtils.degToRad(rArm.x), LERP_SPEED);
+          bones.rightArm.rotation.y = MathUtils.lerp(bones.rightArm.rotation.y, MathUtils.degToRad(rArm.y), LERP_SPEED);
+          bones.rightArm.rotation.z = MathUtils.lerp(bones.rightArm.rotation.z, MathUtils.degToRad(rArm.z), LERP_SPEED);
         }
         if (bones.rightForeArm) {
-            bones.rightForeArm.rotation.z = MathUtils.lerp(bones.rightForeArm.rotation.z, MathUtils.degToRad(-15) - gesture, LERP_SPEED);
-        }
-
-        if (bones.spine) {
-             bones.spine.rotation.x = MathUtils.lerp(bones.spine.rotation.x, breath * 0.02, LERP_SPEED);
-             bones.spine.rotation.y = MathUtils.lerp(bones.spine.rotation.y, Math.sin(t * 0.5) * 0.02, LERP_SPEED);
-        }
-        
-        if (bones.head) {
-             let targetX = Math.sin(t * 0.3) * 0.02;
-             let targetY = Math.sin(t * 0.2) * 0.05;
-             if (isTalking) {
-                 targetX += Math.sin(t * 12) * 0.01;
-                 targetY += Math.sin(t * 8) * 0.01; 
-             }
-             bones.head.rotation.x = MathUtils.lerp(bones.head.rotation.x, targetX, LERP_SPEED);
-             bones.head.rotation.y = MathUtils.lerp(bones.head.rotation.y, targetY, LERP_SPEED);
+            bones.rightForeArm.rotation.z = MathUtils.lerp(bones.rightForeArm.rotation.z, MathUtils.degToRad(rForeArm.z), LERP_SPEED);
         }
     }
   });

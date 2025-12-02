@@ -128,8 +128,9 @@ export default function App() {
             </div>
         )}
 
-        <div className="flex flex-col md:flex-row gap-4 items-end pointer-events-auto max-w-5xl mx-auto w-full">
-            <div className={`flex-1 w-full md:w-auto bg-gray-900/80 backdrop-blur-md rounded-xl border border-gray-700 overflow-hidden flex flex-col transition-all duration-300 ${messages.length === 0 ? 'h-0 opacity-0 md:h-80 md:opacity-100' : 'h-64 md:h-80'}`}>
+        {/* UI container is now anchored to the bottom-right on desktop */}
+        <div className="w-full md:w-auto md:max-w-xl md:absolute md:bottom-6 md:right-6 flex flex-col gap-4 items-end pointer-events-auto">
+            <div className={`w-full bg-gray-900/80 backdrop-blur-md rounded-xl border border-gray-700 overflow-hidden flex flex-col transition-all duration-300 ${messages.length === 0 ? 'h-0 opacity-0 md:h-80 md:opacity-100' : 'h-64 md:h-80'}`}>
                 <div className="flex-1 overflow-y-auto p-4 space-y-3">
                     {messages.map((m) => (
                         <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -142,7 +143,7 @@ export default function App() {
                 </div>
             </div>
 
-            <div className="w-full md:w-auto md:min-w-[400px] bg-gray-900/90 backdrop-blur-xl rounded-2xl border border-gray-700 p-2 shadow-2xl flex flex-col gap-2">
+            <div className="w-full md:min-w-[400px] bg-gray-900/90 backdrop-blur-xl rounded-2xl border border-gray-700 p-2 shadow-2xl flex flex-col gap-2">
                 <div className="flex items-center justify-between px-2 pt-1">
                    <div className="flex items-center gap-2">
                       <div className={`w-2 h-2 rounded-full ${
