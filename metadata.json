@@ -1,6 +1,6 @@
 {
-  "name": "Gemini 3D Digital Human",
-  "description": "Interactive 3D Avatar powered by Gemini Live API with text and voice capabilities.",
+  "name": "Gemini 3D 数字人",
+  "description": "由 Gemini Live API 驱动的交互式3D虚拟形象，支持文本和语音功能。",
   "requestFramePermissions": [
     "microphone"
   ]

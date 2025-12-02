@@ -20,6 +20,13 @@ export default function App() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
+  const connectionStateText: Record<ConnectionState, string> = {
+      [ConnectionState.DISCONNECTED]: '未连接',
+      [ConnectionState.CONNECTING]: '连接中',
+      [ConnectionState.CONNECTED]: '已连接',
+      [ConnectionState.ERROR]: '错误',
+  }
+
   useEffect(() => {
     geminiRef.current = new GeminiService(
       setConnectionState,
@@ -89,12 +96,12 @@ export default function App() {
         <div className="flex justify-between items-start pointer-events-auto">
           <div className="bg-gray-900/80 backdrop-blur p-3 rounded-lg border border-gray-700 shadow-xl">
              <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">
-               Gemini Digital Human
+               Gemini 3D 数字人
              </h1>
              <div className="mt-2 flex gap-2">
                 <input type="file" accept=".glb,.gltf" ref={fileInputRef} className="hidden" onChange={handleFileUpload} />
                 <button onClick={() => fileInputRef.current?.click()} className="text-xs bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded transition">
-                  <i className="fas fa-upload mr-1"></i> Change Model
+                  <i className="fas fa-upload mr-1"></i> 更换模型
                 </button>
              </div>
           </div>
@@ -115,14 +122,14 @@ export default function App() {
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-auto z-50 bg-black/60 backdrop-blur-sm">
                 <div className="text-center p-8 bg-gray-900 rounded-2xl border border-gray-700 shadow-2xl max-w-md mx-4">
                     <div className="text-6xl text-blue-500 mb-4"><i className="fas fa-cube"></i></div>
-                    <h2 className="text-2xl font-bold mb-2">Initialize Digital Human</h2>
-                    <p className="text-gray-400 mb-6">Upload a .glb file to begin. For best results, use a model with standard blend shapes (ARKit) for lip sync.</p>
-                    {/* FIX: Corrected typo from fileInput_current to fileInputRef.current */}
+                    <h2 className="text-2xl font-bold mb-2">初始化数字人</h2>
+                    <p className="text-gray-400 mb-6">请上传 .glb 文件开始。为了获得最佳的口型同步效果，请使用包含标准混合形状 (ARKit) 的模型。</p>
+                    {/* FIX: Corrected typo from fileInputtRef to fileInputRef */}
                     <button onClick={() => fileInputRef.current?.click()} className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-8 rounded-full transition transform hover:scale-105">
-                        Select GLB File
+                        选择 GLB 文件
                     </button>
                     <div className="mt-4 text-xs text-gray-500">
-                       Don't have one? Try downloading from ReadyPlayerMe.
+                       没有模型？可以从 ReadyPlayerMe 下载。
                     </div>
                 </div>
             </div>
@@ -149,7 +156,7 @@ export default function App() {
                       <div className={`w-2 h-2 rounded-full ${
                           connectionState === ConnectionState.CONNECTED ? 'bg-green-500 animate-pulse' :
                           connectionState === ConnectionState.CONNECTING ? 'bg-yellow-500 animate-bounce' : 'bg-red-500'}`} />
-                      <span className="text-xs font-mono uppercase text-gray-400">{connectionState}</span>
+                      <span className="text-xs font-mono uppercase text-gray-400">{connectionStateText[connectionState]}</span>
                    </div>
                    {connectionState === ConnectionState.CONNECTED && (
                        <div className="flex gap-0.5 items-end h-3">
@@ -159,12 +166,12 @@ export default function App() {
                 </div>
 
                 <div className="flex gap-2">
-                    <button onClick={handleConnectToggle} className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${connectionState === ConnectionState.CONNECTED ? 'bg-red-500/20 text-red-500 border border-red-500 hover:bg-red-500 hover:text-white' : 'bg-blue-600 text-white hover:bg-blue-500'}`} title={connectionState === ConnectionState.CONNECTED ? "Disconnect Voice" : "Start Voice Chat"}>
+                    <button onClick={handleConnectToggle} className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${connectionState === ConnectionState.CONNECTED ? 'bg-red-500/20 text-red-500 border border-red-500 hover:bg-red-500 hover:text-white' : 'bg-blue-600 text-white hover:bg-blue-500'}`} title={connectionState === ConnectionState.CONNECTED ? "断开语音" : "开始语音聊天"}>
                         <i className={`fas ${connectionState === ConnectionState.CONNECTED ? 'fa-phone-slash' : 'fa-microphone'}`}></i>
                     </button>
 
                     <div className="flex-1 relative">
-                        <input type="text" className="w-full h-12 bg-gray-800 rounded-full pl-4 pr-12 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Type a message..." value={inputText} onChange={(e) => setInputText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSendText()} disabled={connectionState === ConnectionState.CONNECTED} />
+                        <input type="text" className="w-full h-12 bg-gray-800 rounded-full pl-4 pr-12 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="输入消息..." value={inputText} onChange={(e) => setInputText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSendText()} disabled={connectionState === ConnectionState.CONNECTED} />
                         <button onClick={handleSendText} disabled={!inputText.trim() || connectionState === ConnectionState.CONNECTED} className="absolute right-1 top-1 w-10 h-10 rounded-full bg-gray-700 text-gray-300 hover:text-white hover:bg-blue-600 transition flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed">
                             <i className="fas fa-paper-plane"></i>
                         </button>

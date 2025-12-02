@@ -17,7 +17,7 @@ function Loader() {
     <Html center>
       <div className="bg-black/80 px-4 py-2 rounded-lg border border-gray-700 backdrop-blur-sm">
         <p className="text-white font-mono text-sm whitespace-nowrap">
-          Loading Model... {progress.toFixed(0)}%
+          加载模型中... {progress.toFixed(0)}%
         </p>
       </div>
     </Html>

@@ -50,12 +50,12 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ animations, morphs, 
 
         {isOpen && (
             <div className="p-4 pt-12 h-full flex flex-col">
-                <h3 className="text-lg font-bold mb-4 text-white">Avatar Controls</h3>
+                <h3 className="text-lg font-bold mb-4 text-white">形象控制</h3>
                 
                 <div className="flex gap-2 mb-4 border-b border-gray-700 pb-2">
-                    <button onClick={() => setActiveTab('anim')} className={`flex-1 py-1 px-2 rounded ${activeTab === 'anim' ? 'bg-blue-600' : 'hover:bg-gray-700'}`}>Animations</button>
-                    <button onClick={() => setActiveTab('morph')} className={`flex-1 py-1 px-2 rounded ${activeTab === 'morph' ? 'bg-blue-600' : 'hover:bg-gray-700'}`}>Expressions</button>
-                    <button onClick={() => setActiveTab('bones')} className={`flex-1 py-1 px-2 rounded ${activeTab === 'bones' ? 'bg-blue-600' : 'hover:bg-gray-700'}`}>Bones</button>
+                    <button onClick={() => setActiveTab('anim')} className={`flex-1 py-1 px-2 rounded ${activeTab === 'anim' ? 'bg-blue-600' : 'hover:bg-gray-700'}`}>动画</button>
+                    <button onClick={() => setActiveTab('morph')} className={`flex-1 py-1 px-2 rounded ${activeTab === 'morph' ? 'bg-blue-600' : 'hover:bg-gray-700'}`}>表情</button>
+                    <button onClick={() => setActiveTab('bones')} className={`flex-1 py-1 px-2 rounded ${activeTab === 'bones' ? 'bg-blue-600' : 'hover:bg-gray-700'}`}>骨骼</button>
                 </div>
 
                 <div className="flex-1 overflow-y-auto space-y-2 pr-2">
@@ -66,7 +66,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ animations, morphs, 
                                     <i className="fas fa-play mr-2 text-xs"></i>{anim.name}
                                 </button>
                             ))}
-                            {animations.length === 0 && <p className="text-gray-500 text-sm">No animations found</p>}
+                            {animations.length === 0 && <p className="text-gray-500 text-sm">未找到动画</p>}
                         </div>
                     )}
 
@@ -78,18 +78,18 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ animations, morphs, 
                                     <input type="range" min="0" max="1" step="0.01" defaultValue="0" className="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer" />
                                 </div>
                             ))}
-                             {morphs.length === 0 && <p className="text-gray-500 text-sm">No blend shapes found</p>}
+                             {morphs.length === 0 && <p className="text-gray-500 text-sm">未找到混合形状</p>}
                         </div>
                     )}
 
                     {activeTab === 'bones' && (
                         <form ref={formRef} className="space-y-4">
                             <div className="p-2 bg-blue-900/30 border border-blue-700 rounded-md text-xs text-blue-200">
-                                <i className="fas fa-info-circle mr-2"></i>Manipulating sliders will pause procedural animation.
+                                <i className="fas fa-info-circle mr-2"></i>拖动滑块将暂停程序化动画。
                             </div>
                             {isDebuggingBones && (
                                 <button type="button" onClick={handleStopDebug} className="w-full text-center px-3 py-2 bg-green-600 hover:bg-green-500 rounded text-sm font-semibold">
-                                    <i className="fas fa-sync-alt mr-2"></i>Re-enable Procedural Pose
+                                    <i className="fas fa-sync-alt mr-2"></i>重新启用程序化姿态
                                 </button>
                             )}
                             {boneControls.map(bone => (
@@ -98,7 +98,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ animations, morphs, 
                                     <div className="space-y-3">
                                         {(['x', 'y', 'z'] as const).map(axis => (
                                             <div key={axis} className="grid grid-cols-5 items-center gap-2">
-                                                <label className="text-xs font-mono text-gray-400 uppercase">{axis} Axis</label>
+                                                <label className="text-xs font-mono text-gray-400 uppercase">{axis} 轴</label>
                                                 <input type="range" min="-180" max="180" step="1" defaultValue="0" className="col-span-3 w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer"
                                                     onInput={(e) => {
                                                         onStartDebug();
@@ -120,7 +120,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({ animations, morphs, 
                                     </div>
                                 </div>
                             ))}
-                            {boneControls.length === 0 && <p className="text-gray-500 text-sm">No controllable bones found</p>}
+                            {boneControls.length === 0 && <p className="text-gray-500 text-sm">未找到可控制的骨骼</p>}
                         </form>
                     )}
                 </div>

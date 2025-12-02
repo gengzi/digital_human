@@ -89,7 +89,7 @@ export class GeminiService {
           { role: 'user', parts: [{ text }] }
         ],
       });
-      const responseText = response.text || "I'm not sure how to respond to that.";
+      const responseText = response.text || "我不太确定如何回应。";
 
       // 2. Generate Audio (TTS) for the response and wait for it to complete
       await this.generateTTS(responseText);
@@ -160,7 +160,7 @@ export class GeminiService {
           speechConfig: {
             voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } },
           },
-          systemInstruction: "You are a helpful and expressive 3D digital avatar. Respond concisely and conversationally.",
+          systemInstruction: "你是一个乐于助人且富有表现力的3D数字形象。请用简洁和对话的方式回答。",
           // FX: inputAudioTranscription does not accept a text model. It should be an empty object.
           inputAudioTranscription: {}, 
           outputAudioTranscription: {}, 
