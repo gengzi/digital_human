@@ -1,3 +1,7 @@
+
+{/* Fix: Add a triple-slash directive to explicitly include react-three-fiber types.
+This resolves errors where JSX elements like `<color>`, `<ambientLight>`, `<directionalLight>`, and `<group>` were not recognized by TypeScript. */}
+<reference types="@react-three/fiber" />
 import React, { Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Environment, OrbitControls, ContactShadows, Sky, Html, useProgress } from '@react-three/drei';

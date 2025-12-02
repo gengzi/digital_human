@@ -1,13 +1,12 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Scene } from './components/Scene';
 import { GeminiService } from './services/geminiService';
 import { ControlPanel } from './components/ControlPanel';
+import { DigitalHuman } from './components/DigitalHuman';
 import { ConnectionState, Message, AnimationControl, MorphTargetControl, BoneControl } from './types';
 
 export default function App() {
   const [modelUrl, setModelUrl] = useState<string | null>(null);
   const [connectionState, setConnectionState] = useState<ConnectionState>(ConnectionState.DISCONNECTED);
-  const [audioLevel, setAudioLevel] = useState(0);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   
@@ -16,9 +15,14 @@ export default function App() {
   const [boneControls, setBoneControls] = useState<BoneControl[]>([]);
   const [isDebuggingBones, setIsDebuggingBones] = useState(false);
 
+  // New state to control the DigitalHuman component
+  const [textToSpeak, setTextToSpeak] = useState<string>('');
+  const [audioToPlay, setAudioToPlay] = useState<string>('');
+
   const geminiRef = useRef<GeminiService | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const isMounted = useRef(true);
 
   const connectionStateText: Record<ConnectionState, string> = {
       [ConnectionState.DISCONNECTED]: '未连接',
@@ -28,13 +32,15 @@ export default function App() {
   }
 
   useEffect(() => {
+    isMounted.current = true;
     geminiRef.current = new GeminiService(
-      setConnectionState,
-      (msg) => setMessages(prev => [...prev, msg]),
-      setAudioLevel
+      (state) => { if(isMounted.current) setConnectionState(state) },
+      (msg) => { if(isMounted.current) setMessages(prev => [...prev, msg]) },
+      (audioChunk) => { if(isMounted.current) setAudioToPlay(audioChunk) }
     );
-    // FIX: The useEffect cleanup function cannot be async. Wrap the call in braces to ensure it returns void.
+
     return () => {
+      isMounted.current = false;
       geminiRef.current?.disconnect();
     };
   }, []);
@@ -43,8 +49,8 @@ export default function App() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleAvatarReady = useCallback((anims: AnimationControl[], morphs: MorphTargetControl[], bones: BoneControl[]) => {
-      setAnimations(anims);
+  const handleAvatarReady = useCallback(({ animations, morphs, bones }: { animations: AnimationControl[], morphs: MorphTargetControl[], bones: BoneControl[] }) => {
+      setAnimations(animations);
       setMorphs(morphs);
       setBoneControls(bones);
   }, []);
@@ -52,7 +58,11 @@ export default function App() {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (modelUrl) URL.revokeObjectURL(modelUrl);
+      const currentUrl = modelUrl;
+      // Revoke old URL only if it's a blob URL
+      if (currentUrl && currentUrl.startsWith('blob:')) {
+          URL.revokeObjectURL(currentUrl);
+      }
       setModelUrl(URL.createObjectURL(file));
     }
   };
@@ -70,26 +80,30 @@ export default function App() {
     
     const userMsg: Message = { id: Date.now().toString(), role: 'user', text: inputText, timestamp: new Date() };
     setMessages(prev => [...prev, userMsg]);
+    const currentInput = inputText;
     setInputText('');
 
     try {
-      const responseText = await geminiRef.current.sendMessage(inputText, messages);
+      const responseText = await geminiRef.current.sendMessage(currentInput, messages);
       const aiMsg: Message = { id: (Date.now() + 1).toString(), role: 'model', text: responseText, timestamp: new Date() };
       setMessages(prev => [...prev, aiMsg]);
+      // Pass the response to the DigitalHuman to speak
+      setTextToSpeak(responseText);
     } catch (e) { console.error(e); }
   };
 
   return (
     <div className="relative w-full h-screen overflow-hidden bg-black text-white font-sans">
       
-      <div className="absolute inset-0 z-0">
-        <Scene 
-            modelUrl={modelUrl} 
-            audioLevel={audioLevel}
-            onAvatarReady={handleAvatarReady}
-            isDebuggingBones={isDebuggingBones}
-        />
-      </div>
+      <DigitalHuman
+        apiKey={process.env.API_KEY || ''}
+        modelUrl={modelUrl}
+        textToSpeak={textToSpeak}
+        audioToPlay={audioToPlay}
+        onReady={handleAvatarReady}
+        isDebuggingBones={isDebuggingBones}
+        className="absolute inset-0 z-0"
+      />
 
       <div className="absolute inset-0 z-10 pointer-events-none flex flex-col justify-between p-4 md:p-6">
         
@@ -124,7 +138,6 @@ export default function App() {
                     <div className="text-6xl text-blue-500 mb-4"><i className="fas fa-cube"></i></div>
                     <h2 className="text-2xl font-bold mb-2">初始化数字人</h2>
                     <p className="text-gray-400 mb-6">请上传 .glb 文件开始。为了获得最佳的口型同步效果，请使用包含标准混合形状 (ARKit) 的模型。</p>
-                    {/* FIX: Corrected typo from fileInputtRef to fileInputRef */}
                     <button onClick={() => fileInputRef.current?.click()} className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-8 rounded-full transition transform hover:scale-105">
                         选择 GLB 文件
                     </button>
@@ -158,11 +171,6 @@ export default function App() {
                           connectionState === ConnectionState.CONNECTING ? 'bg-yellow-500 animate-bounce' : 'bg-red-500'}`} />
                       <span className="text-xs font-mono uppercase text-gray-400">{connectionStateText[connectionState]}</span>
                    </div>
-                   {connectionState === ConnectionState.CONNECTED && (
-                       <div className="flex gap-0.5 items-end h-3">
-                           {[1,2,3,4,5].map(i => (<div key={i} className="w-1 bg-blue-500 rounded-full transition-all duration-75" style={{ height: `${Math.max(20, audioLevel * 100 * (Math.random() + 0.5))}%` }}></div>))}
-                       </div>
-                   )}
                 </div>
 
                 <div className="flex gap-2">

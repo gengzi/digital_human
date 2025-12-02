@@ -1,3 +1,7 @@
+
+{/* Fix: Add a triple-slash directive to explicitly include react-three-fiber types.
+This resolves errors where JSX elements like `<group>` and `<primitive>` were not recognized by TypeScript. */}
+<reference types="@react-three/fiber" />
 import React, { useEffect, useRef, useMemo, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useGLTF, useAnimations } from '@react-three/drei';
@@ -108,7 +112,6 @@ export const Avatar: React.FC<AvatarProps> = ({ url, audioLevel, onControlsReady
         name,
         setRotation: (axis, valueInDegrees) => {
           if (bone) {
-            // FIX: Cast `bone` to the `Bone` type to resolve the 'unknown' type error and allow accessing the `rotation` property.
             (bone as Bone).rotation[axis] = MathUtils.degToRad(valueInDegrees);
           }
         },
