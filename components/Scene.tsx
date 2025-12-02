@@ -1,18 +1,65 @@
-
-{/* Fix: Add a triple-slash directive to explicitly include react-three-fiber types.
-This resolves errors where JSX elements like `<color>`, `<ambientLight>`, `<directionalLight>`, and `<group>` were not recognized by TypeScript. */}
-<reference types="@react-three/fiber" />
 import React, { Suspense } from 'react';
-import { Canvas } from '@react-three/fiber';
-import { Environment, OrbitControls, ContactShadows, Sky, Html, useProgress } from '@react-three/drei';
+import { Canvas, useThree } from '@react-three/fiber';
+import { Environment, OrbitControls, ContactShadows, Sky, Html, useProgress, useTexture, Plane } from '@react-three/drei';
+import { Texture } from 'three';
 import { Avatar } from './Avatar';
-import { AnimationControl, MorphTargetControl, BoneControl } from '../types';
+import { AnimationControl, MorphTargetControl, BoneControl, Background } from '../types';
+
+// Fix for missing R3F JSX types
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      group: any;
+      ambientLight: any;
+      directionalLight: any;
+      color: any;
+      meshBasicMaterial: any;
+    }
+  }
+}
 
 interface SceneProps {
   modelUrl: string | null;
+  background: Background;
   audioLevel: number;
   onAvatarReady: (anims: AnimationControl[], morphs: MorphTargetControl[], bones: BoneControl[]) => void;
   isDebuggingBones: boolean;
+}
+
+// A dedicated component for the image background to encapsulate the useTexture hook
+function ImageBackground({ url }: { url: string }) {
+  const texture = useTexture(url);
+  const { viewport } = useThree();
+
+  return (
+    <>
+      <color attach="background" args={['#111']} />
+      <Environment preset="city" />
+      <Plane args={[viewport.width, viewport.height]} position={[0, 0, -5]}>
+        <meshBasicMaterial map={texture as Texture} />
+      </Plane>
+    </>
+  );
+}
+
+function BackgroundRenderer({ background }: { background: Background }) {
+  switch (background.type) {
+    case 'color':
+      return (
+        <>
+          <color attach="background" args={[background.value]} />
+          <Sky sunPosition={[100, 20, 100]} />
+          <Environment preset="sunset" />
+        </>
+      );
+    case 'image':
+      // The useTexture hook is now safely called inside this component
+      return <ImageBackground url={background.value} />;
+    case 'hdri':
+      return <Environment files={background.value} background />;
+    default:
+      return <color attach="background" args={['#111']} />;
+  }
 }
 
 function Loader() {
@@ -28,16 +75,15 @@ function Loader() {
   );
 }
 
-export const Scene: React.FC<SceneProps> = ({ modelUrl, audioLevel, onAvatarReady, isDebuggingBones }) => {
+export const Scene: React.FC<SceneProps> = ({ modelUrl, background, audioLevel, onAvatarReady, isDebuggingBones }) => {
   return (
     <div className="absolute inset-0 w-full h-full bg-black">
       <Canvas shadows camera={{ position: [0.2, 0.2, 3.8], fov: 30 }}>
-        {/* Warm, sunny background color */}
-        <color attach="background" args={['#f0e6d2']} />
-        {/* Procedural sunny sky */}
-        <Sky sunPosition={[100, 20, 100]} />
         
-        {/* Warm, bright lighting to simulate a sunny day */}
+        <Suspense fallback={null}>
+            <BackgroundRenderer background={background} />
+        </Suspense>
+        
         <ambientLight intensity={0.8} />
         <directionalLight 
             position={[10, 10, 5]} 
@@ -48,16 +94,12 @@ export const Scene: React.FC<SceneProps> = ({ modelUrl, audioLevel, onAvatarRead
             shadow-mapSize-height={2048}
         />
         
-        {/* Environment for warm reflections */}
-        <Environment preset="sunset" />
-
         <Suspense fallback={<Loader />}>
           {modelUrl && (
-            // Avatar repositioned and scaled down further
             <group position={[-0.4, -0.8, 0]}>
                <group scale={0.9}>
                   <Avatar 
-                    key={modelUrl} // Force remount when URL changes
+                    key={modelUrl}
                     url={modelUrl} 
                     audioLevel={audioLevel} 
                     onControlsReady={onAvatarReady} 
@@ -68,7 +110,6 @@ export const Scene: React.FC<SceneProps> = ({ modelUrl, audioLevel, onAvatarRead
           )}
         </Suspense>
         
-        {/* Shadows to ground the character */}
         <ContactShadows resolution={1024} scale={10} blur={1} opacity={0.7} far={10} color="#000000" position={[0, -0.8, 0]} />
         
         <OrbitControls 
@@ -80,12 +121,6 @@ export const Scene: React.FC<SceneProps> = ({ modelUrl, audioLevel, onAvatarRead
             enablePan={false}
         />
       </Canvas>
-      
-      {!modelUrl && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            {/* Placeholder for when no model is loaded (handled by UI overlay) */}
-        </div>
-      )}
     </div>
   );
 };

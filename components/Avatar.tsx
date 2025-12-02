@@ -1,12 +1,18 @@
-
-{/* Fix: Add a triple-slash directive to explicitly include react-three-fiber types.
-This resolves errors where JSX elements like `<group>` and `<primitive>` were not recognized by TypeScript. */}
-<reference types="@react-three/fiber" />
 import React, { useEffect, useRef, useMemo, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useGLTF, useAnimations } from '@react-three/drei';
 import { SkinnedMesh, Bone, MathUtils } from 'three';
 import { AnimationControl, MorphTargetControl, BoneControl } from '../types';
+
+// Fix for missing R3F JSX types
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      group: any;
+      primitive: any;
+    }
+  }
+}
 
 interface AvatarProps {
   url: string;

@@ -29,3 +29,8 @@ export interface BoneControl {
   name: string;
   setRotation: (axis: 'x' | 'y' | 'z', valueInDegrees: number) => void;
 }
+
+export type Background = {
+  type: 'color' | 'image' | 'hdri';
+  value: string;
+};

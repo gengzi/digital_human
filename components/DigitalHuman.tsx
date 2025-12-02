@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { GoogleGenAI, Modality } from '@google/genai';
 import { Scene } from './Scene';
-import { AnimationControl, MorphTargetControl, BoneControl } from '../types';
+import { AnimationControl, MorphTargetControl, BoneControl, Background } from '../types';
 import { decode, decodeAudioData } from '../services/audioUtils';
 
 // --- Internal TTS & Audio Service ---
@@ -108,6 +108,7 @@ class AudioService {
 interface DigitalHumanProps {
   apiKey: string;
   modelUrl?: string;
+  background: Background;
   textToSpeak?: string;
   audioToPlay?: string; // base64 pcm audio
   className?: string;
@@ -119,6 +120,7 @@ interface DigitalHumanProps {
 export const DigitalHuman: React.FC<DigitalHumanProps> = ({
   apiKey,
   modelUrl,
+  background,
   textToSpeak,
   audioToPlay,
   className,
@@ -159,6 +161,7 @@ export const DigitalHuman: React.FC<DigitalHumanProps> = ({
     <div className={className || 'absolute inset-0 w-full h-full'}>
       <Scene 
         modelUrl={modelUrl || null} 
+        background={background}
         audioLevel={audioLevel}
         onAvatarReady={handleAvatarReady}
         isDebuggingBones={isDebuggingBones}

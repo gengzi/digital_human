@@ -2,10 +2,13 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { GeminiService } from './services/geminiService';
 import { ControlPanel } from './components/ControlPanel';
 import { DigitalHuman } from './components/DigitalHuman';
-import { ConnectionState, Message, AnimationControl, MorphTargetControl, BoneControl } from './types';
+import { ConnectionState, Message, AnimationControl, MorphTargetControl, BoneControl, Background } from './types';
 
 export default function App() {
   const [modelUrl, setModelUrl] = useState<string | null>(null);
+  // Fixed background, no changing functionality
+  const [background] = useState<Background>({ type: 'color', value: '#f0e6d2' });
+
   const [connectionState, setConnectionState] = useState<ConnectionState>(ConnectionState.DISCONNECTED);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
@@ -59,7 +62,6 @@ export default function App() {
     const file = e.target.files?.[0];
     if (file) {
       const currentUrl = modelUrl;
-      // Revoke old URL only if it's a blob URL
       if (currentUrl && currentUrl.startsWith('blob:')) {
           URL.revokeObjectURL(currentUrl);
       }
@@ -79,17 +81,50 @@ export default function App() {
     if (!inputText.trim() || !geminiRef.current) return;
     
     const userMsg: Message = { id: Date.now().toString(), role: 'user', text: inputText, timestamp: new Date() };
+    
+    const history = [...messages];
+    
     setMessages(prev => [...prev, userMsg]);
     const currentInput = inputText;
     setInputText('');
 
     try {
-      const responseText = await geminiRef.current.sendMessage(currentInput, messages);
-      const aiMsg: Message = { id: (Date.now() + 1).toString(), role: 'model', text: responseText, timestamp: new Date() };
+      const responseText = await geminiRef.current.sendMessage(currentInput, history);
+      
+      // Extremely defensive string conversion to prevent React Error #31
+      let safeText = "无回应";
+      if (typeof responseText === 'string') {
+          safeText = responseText;
+      } else if (responseText !== null && responseText !== undefined) {
+          try {
+             // If it's an object, try to stringify it, otherwise cast
+             safeText = typeof responseText === 'object' ? JSON.stringify(responseText) : String(responseText);
+          } catch {
+              safeText = "Response Error";
+          }
+      }
+
+      const aiMsg: Message = { id: (Date.now() + 1).toString(), role: 'model', text: safeText, timestamp: new Date() };
       setMessages(prev => [...prev, aiMsg]);
-      // Pass the response to the DigitalHuman to speak
-      setTextToSpeak(responseText);
-    } catch (e) { console.error(e); }
+      setTextToSpeak(safeText);
+    } catch (e) { 
+        console.error(e);
+        const errorMsg: Message = { id: (Date.now() + 1).toString(), role: 'model', text: "抱歉，发生了一些错误。", timestamp: new Date() };
+        setMessages(prev => [...prev, errorMsg]);
+    }
+  };
+
+  // Helper function to guarantee safe rendering of message content
+  const renderSafeMessage = (content: any): string => {
+      if (content === null || content === undefined) return '';
+      if (typeof content === 'string') return content;
+      if (typeof content === 'number') return content.toString();
+      if (typeof content === 'boolean') return content ? 'true' : 'false';
+      try {
+          return JSON.stringify(content);
+      } catch {
+          return '[Invalid Content]';
+      }
   };
 
   return (
@@ -98,6 +133,7 @@ export default function App() {
       <DigitalHuman
         apiKey={process.env.API_KEY || ''}
         modelUrl={modelUrl}
+        background={background}
         textToSpeak={textToSpeak}
         audioToPlay={audioToPlay}
         onReady={handleAvatarReady}
@@ -108,7 +144,7 @@ export default function App() {
       <div className="absolute inset-0 z-10 pointer-events-none flex flex-col justify-between p-4 md:p-6">
         
         <div className="flex justify-between items-start pointer-events-auto">
-          <div className="bg-gray-900/80 backdrop-blur p-3 rounded-lg border border-gray-700 shadow-xl">
+          <div className="relative bg-gray-900/80 backdrop-blur p-3 rounded-lg border border-gray-700 shadow-xl">
              <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">
                Gemini 3D 数字人
              </h1>
@@ -123,7 +159,7 @@ export default function App() {
           <div className="pointer-events-auto">
              <ControlPanel 
                 animations={animations} 
-                morphs={morphs} 
+                morphs={morphs}
                 boneControls={boneControls}
                 isDebuggingBones={isDebuggingBones}
                 onStartDebug={() => setIsDebuggingBones(true)}
@@ -147,15 +183,15 @@ export default function App() {
                 </div>
             </div>
         )}
-
-        {/* UI container is now anchored to the bottom-right on desktop */}
-        <div className="w-full md:w-auto md:max-w-xl md:absolute md:bottom-6 md:right-6 flex flex-col gap-4 items-end pointer-events-auto">
-            <div className={`w-full bg-gray-900/80 backdrop-blur-md rounded-xl border border-gray-700 overflow-hidden flex flex-col transition-all duration-300 ${messages.length === 0 ? 'h-0 opacity-0 md:h-80 md:opacity-100' : 'h-64 md:h-80'}`}>
+        
+        <div className="w-full flex justify-center pointer-events-auto">
+          <div className="w-full max-w-2xl flex flex-col gap-2 items-center">
+            <div className={`w-full overflow-hidden flex flex-col transition-all duration-300 ${messages.length === 0 ? 'h-0 opacity-0 md:h-80 md:opacity-100' : 'h-64 md:h-80'}`}>
                 <div className="flex-1 overflow-y-auto p-4 space-y-3">
                     {messages.map((m) => (
                         <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                            <div className={`max-w-[85%] px-3 py-2 rounded-lg text-sm ${m.role === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-gray-700 text-gray-200 rounded-bl-none'}`}>
-                                {m.text}
+                            <div className={`max-w-[85%] px-3 py-2 rounded-lg text-sm shadow-md ${m.role === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-gray-100 text-gray-800 rounded-bl-none'}`}>
+                                {renderSafeMessage(m.text)}
                             </div>
                         </div>
                     ))}
@@ -163,29 +199,30 @@ export default function App() {
                 </div>
             </div>
 
-            <div className="w-full md:min-w-[400px] bg-gray-900/90 backdrop-blur-xl rounded-2xl border border-gray-700 p-2 shadow-2xl flex flex-col gap-2">
-                <div className="flex items-center justify-between px-2 pt-1">
+            <div className="w-full max-w-lg flex flex-col gap-2">
+                <div className="flex items-center justify-center px-2 pt-1 h-6">
                    <div className="flex items-center gap-2">
                       <div className={`w-2 h-2 rounded-full ${
                           connectionState === ConnectionState.CONNECTED ? 'bg-green-500 animate-pulse' :
                           connectionState === ConnectionState.CONNECTING ? 'bg-yellow-500 animate-bounce' : 'bg-red-500'}`} />
-                      <span className="text-xs font-mono uppercase text-gray-400">{connectionStateText[connectionState]}</span>
+                      <span className="text-xs font-mono uppercase text-gray-700">{connectionStateText[connectionState]}</span>
                    </div>
                 </div>
 
                 <div className="flex gap-2">
-                    <button onClick={handleConnectToggle} className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${connectionState === ConnectionState.CONNECTED ? 'bg-red-500/20 text-red-500 border border-red-500 hover:bg-red-500 hover:text-white' : 'bg-blue-600 text-white hover:bg-blue-500'}`} title={connectionState === ConnectionState.CONNECTED ? "断开语音" : "开始语音聊天"}>
+                    <button onClick={handleConnectToggle} className={`w-12 h-12 rounded-full flex items-center justify-center transition-all shadow-md ${connectionState === ConnectionState.CONNECTED ? 'bg-red-100 text-red-600 border border-red-300 hover:bg-red-200' : 'bg-white/50 backdrop-blur-sm text-gray-800 hover:bg-white/80 border border-white/20'}`} title={connectionState === ConnectionState.CONNECTED ? "断开语音" : "开始语音聊天"}>
                         <i className={`fas ${connectionState === ConnectionState.CONNECTED ? 'fa-phone-slash' : 'fa-microphone'}`}></i>
                     </button>
 
                     <div className="flex-1 relative">
-                        <input type="text" className="w-full h-12 bg-gray-800 rounded-full pl-4 pr-12 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="输入消息..." value={inputText} onChange={(e) => setInputText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSendText()} disabled={connectionState === ConnectionState.CONNECTED} />
-                        <button onClick={handleSendText} disabled={!inputText.trim() || connectionState === ConnectionState.CONNECTED} className="absolute right-1 top-1 w-10 h-10 rounded-full bg-gray-700 text-gray-300 hover:text-white hover:bg-blue-600 transition flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed">
+                        <input type="text" className="w-full h-12 bg-white/50 backdrop-blur-sm border border-white/20 rounded-full pl-5 pr-12 text-gray-900 placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 shadow-md" placeholder="输入消息..." value={inputText} onChange={(e) => setInputText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSendText()} disabled={connectionState === ConnectionState.CONNECTED} />
+                        <button onClick={handleSendText} disabled={!inputText.trim() || connectionState === ConnectionState.CONNECTED} className="absolute right-1 top-1 w-10 h-10 rounded-full bg-blue-500 text-white hover:bg-blue-600 transition flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed">
                             <i className="fas fa-paper-plane"></i>
                         </button>
                     </div>
                 </div>
             </div>
+          </div>
         </div>
       </div>
     </div>
