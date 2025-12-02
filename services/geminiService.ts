@@ -161,7 +161,8 @@ export class GeminiService {
             voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } },
           },
           systemInstruction: "You are a helpful and expressive 3D digital avatar. Respond concisely and conversationally.",
-          inputAudioTranscription: { model: TEXT_MODEL }, 
+          // FX: inputAudioTranscription does not accept a text model. It should be an empty object.
+          inputAudioTranscription: {}, 
           outputAudioTranscription: {}, 
         },
       });

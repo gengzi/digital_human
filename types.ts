@@ -24,3 +24,8 @@ export interface MorphTargetControl {
   value: number; // 0 to 1
   index: number;
 }
+
+export interface BoneControl {
+  name: string;
+  setRotation: (axis: 'x' | 'y' | 'z', valueInDegrees: number) => void;
+}

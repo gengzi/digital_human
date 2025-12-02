@@ -1,84 +1,95 @@
 import React, { useEffect, useRef, useMemo, useState } from 'react';
-import { useFrame, useGraph } from '@react-three/fiber';
+import { useFrame } from '@react-three/fiber';
 import { useGLTF, useAnimations } from '@react-three/drei';
-import { SkinnedMesh, Bone, MathUtils, Euler } from 'three';
-import { AnimationControl, MorphTargetControl } from '../types';
+import { SkinnedMesh, Bone, MathUtils } from 'three';
+import { AnimationControl, MorphTargetControl, BoneControl } from '../types';
 
 interface AvatarProps {
   url: string;
   audioLevel: number; // 0 to 1
-  onControlsReady: (anims: AnimationControl[], morphs: MorphTargetControl[]) => void;
+  onControlsReady: (anims: AnimationControl[], morphs: MorphTargetControl[], bones: BoneControl[]) => void;
+  isDebuggingBones: boolean;
 }
 
-export const Avatar: React.FC<AvatarProps> = ({ url, audioLevel, onControlsReady }) => {
+export const Avatar: React.FC<AvatarProps> = ({ url, audioLevel, onControlsReady, isDebuggingBones }) => {
   const { scene, animations } = useGLTF(url);
-  const group = useRef<any>();
+  const group = useRef<any>(null);
   const { actions, names } = useAnimations(animations, group);
   
-  // State for blinking logic
   const [blinkState, setBlinkState] = useState({ isBlinking: false, nextBlink: 2000 });
+  const smoothAudio = useRef(0);
 
-  // 1. Find Head Mesh for Expressions
   const headMesh = useMemo(() => {
-    const meshes: SkinnedMesh[] = [];
+    let targetMesh: SkinnedMesh | null = null;
     scene.traverse((node: any) => {
-      if (node.isSkinnedMesh && node.morphTargetDictionary && Object.keys(node.morphTargetDictionary).length > 0) {
-        meshes.push(node);
+      if (node.isSkinnedMesh && (node.name.includes('Wolf3D_Head') || node.name.includes('Wolf3D_Avatar'))) {
+        targetMesh = node;
       }
     });
-    if (meshes.length === 0) return null;
-    
-    // Prioritize standard names
-    const preferred = meshes.find(m => /head|face|wolf3d_avatar/i.test(m.name));
-    return preferred || meshes.sort((a, b) => 
-        Object.keys(b.morphTargetDictionary!).length - Object.keys(a.morphTargetDictionary!).length
-    )[0];
+    if (!targetMesh) {
+        scene.traverse((node: any) => {
+            if (!targetMesh && node.isSkinnedMesh && node.morphTargetDictionary) {
+                targetMesh = node;
+            }
+        });
+    }
+    return targetMesh;
   }, [scene]);
 
-  // 2. Find Bones for Procedural Animation
   const bones = useMemo(() => {
     const b: Record<string, Bone | null> = {
         neck: null, head: null, spine: null, hips: null,
-        leftArm: null, leftForeArm: null, rightArm: null, rightForeArm: null
+        leftArm: null, leftForeArm: null, leftHand: null, leftShoulder: null,
+        rightArm: null, rightForeArm: null, rightHand: null, rightShoulder: null
     };
+    scene.traverse((node: any) => {
+        if (!node.isBone) return;
+        const name = node.name.toLowerCase();
+        const is = (n: string) => name.includes(n);
 
-    const findBone = (patterns: RegExp[]) => {
-        let found: Bone | null = null;
-        scene.traverse((node: any) => {
-            if (found) return;
-            if (node.isBone && patterns.some(p => p.test(node.name))) {
-                found = node;
-            }
-        });
-        return found;
-    };
-
-    b.neck = findBone([/neck/i]);
-    b.head = findBone([/head/i]);
-    b.spine = findBone([/spine/i, /body/i]);
-    b.hips = findBone([/hip/i, /pelvis/i]);
-    
-    b.leftArm = findBone([/left.*arm/i, /l.*arm/i, /left.*shoulder/i]);
-    b.leftForeArm = findBone([/left.*forearm/i, /l.*forearm/i, /left.*elbow/i]);
-    b.rightArm = findBone([/right.*arm/i, /r.*arm/i, /right.*shoulder/i]);
-    b.rightForeArm = findBone([/right.*forearm/i, /r.*forearm/i, /right.*elbow/i]);
-
+        if (is('head')) b.head = node;
+        else if (is('neck')) b.neck = node;
+        else if (is('spine2') || (is('spine') && !b.spine)) b.spine = node;
+        else if (is('hips')) b.hips = node;
+        else if (is('left') && is('shoulder')) b.leftShoulder = node;
+        else if (is('left') && is('forearm')) b.leftForeArm = node;
+        else if (is('left') && is('hand')) b.leftHand = node;
+        else if (is('left') && is('arm')) b.leftArm = node;
+        else if (is('right') && is('shoulder')) b.rightShoulder = node;
+        else if (is('right') && is('forearm')) b.rightForeArm = node;
+        else if (is('right') && is('hand')) b.rightHand = node;
+        else if (is('right') && is('arm')) b.rightArm = node;
+    });
     return b;
   }, [scene]);
 
-  // Capture initial rotations for relative movement
-  const initialRotations = useRef<Record<string, Euler>>({});
   useEffect(() => {
-      Object.entries(bones).forEach(([key, bone]) => {
-          if (bone) initialRotations.current[key] = (bone as Bone).rotation.clone();
-      });
-  }, [bones]);
+    // --- Set Initial Relaxed Pose to prevent T-Pose flash ---
+    if (bones.leftArm) {
+      bones.leftArm.rotation.x = MathUtils.degToRad(45);
+      bones.leftArm.rotation.y = MathUtils.degToRad(-20);
+      bones.leftArm.rotation.z = MathUtils.degToRad(20);
+    }
+    if (bones.leftForeArm) {
+      bones.leftForeArm.rotation.z = MathUtils.degToRad(15);
+    }
+    if (bones.rightArm) {
+      bones.rightArm.rotation.x = MathUtils.degToRad(45);
+      bones.rightArm.rotation.y = MathUtils.degToRad(20);
+      bones.rightArm.rotation.z = MathUtils.degToRad(-20);
+    }
+    if (bones.rightForeArm) {
+      bones.rightForeArm.rotation.z = MathUtils.degToRad(-15);
+    }
+    // --- End Initial Pose Setup ---
 
-  // 3. Setup Animations
-  useEffect(() => {
     const animControls = names.map(name => ({
       name,
-      play: () => { names.forEach(n => actions[n]?.fadeOut(0.5)); actions[name]?.reset().fadeIn(0.5).play(); },
+      play: () => { 
+          names.forEach(n => actions[n]?.fadeOut(0.5)); 
+          const action = actions[name];
+          if (action) { action.reset().fadeIn(0.5).play(); }
+      },
       stop: () => actions[name]?.fadeOut(0.5),
       isActive: false
     }));
@@ -90,57 +101,48 @@ export const Avatar: React.FC<AvatarProps> = ({ url, audioLevel, onControlsReady
       });
     }
 
-    onControlsReady(animControls, morphControls);
+    const relevantBones = ['leftArm', 'leftForeArm', 'rightArm', 'rightForeArm', 'spine', 'head'];
+    const boneControls: BoneControl[] = Object.entries(bones)
+      .filter(([name, bone]) => bone && relevantBones.includes(name))
+      .map(([name, bone]) => ({
+        name,
+        setRotation: (axis, valueInDegrees) => {
+          if (bone) {
+            bone.rotation[axis] = MathUtils.degToRad(valueInDegrees);
+          }
+        },
+      }));
+
+    onControlsReady(animControls, morphControls, boneControls);
     
-    // Auto-play Idle
-    if (names.length > 0) {
-        const idleAnim = names.find(n => /idle|stand|wait/i.test(n)) || names[0];
-        actions[idleAnim]?.reset().fadeIn(0.5).play();
-    }
-  }, [actions, names, headMesh, onControlsReady]);
+    const idleAnim = names.find(n => /idle|stand|wait/i.test(n));
+    if (idleAnim) { actions[idleAnim]?.reset().fadeIn(0.5).play(); }
+    
+  }, [actions, names, headMesh, onControlsReady, bones]);
 
-  // 4. Procedural Loop
-  useFrame((state) => {
+  useFrame((state, delta) => {
     const t = state.clock.elapsedTime;
-    const ms = t * 1000;
+    smoothAudio.current = MathUtils.lerp(smoothAudio.current, audioLevel, 0.2);
+    const intensity = smoothAudio.current;
+    const isTalking = intensity > 0.05;
 
-    // --- Face Logic ---
-    if (headMesh && headMesh.morphTargetDictionary && headMesh.morphTargetInfluences) {
-        // Lip Sync
-        const mouthTargets = ['viseme_aa', 'viseme_O', 'jawOpen', 'mouthOpen', 'mouth_open'];
+    if (headMesh?.morphTargetDictionary && headMesh.morphTargetInfluences) {
+        const mouthTargets = ['viseme_aa', 'jawOpen', 'mouthOpen', 'mouth_open'];
         const targetIndex = mouthTargets.map(name => headMesh.morphTargetDictionary![name]).find(i => i !== undefined);
         if (targetIndex !== undefined) {
-            const current = headMesh.morphTargetInfluences[targetIndex];
-            headMesh.morphTargetInfluences[targetIndex] = MathUtils.lerp(current, audioLevel, 0.3);
+            headMesh.morphTargetInfluences[targetIndex] = MathUtils.lerp(headMesh.morphTargetInfluences[targetIndex], intensity * 0.8, 0.4);
         }
 
-        // Brow Raise (on high audio)
-        const browTargets = ['browInnerUp', 'browOuterUpLeft', 'browOuterUpRight', 'BrowsUp'];
-        browTargets.forEach(name => {
-            const idx = headMesh.morphTargetDictionary![name];
-            if (idx !== undefined) {
-                const target = audioLevel > 0.4 ? (audioLevel - 0.4) * 1.2 : 0;
-                headMesh.morphTargetInfluences![idx] = MathUtils.lerp(headMesh.morphTargetInfluences![idx], target, 0.1);
-            }
-        });
-
-        // Blinking
-        if (!blinkState.isBlinking && ms > blinkState.nextBlink) {
+        if (!blinkState.isBlinking && t * 1000 > blinkState.nextBlink) {
             setBlinkState(prev => ({ ...prev, isBlinking: true }));
         }
-
         if (blinkState.isBlinking) {
-            const blinkDuration = 150; // ms
-            const progress = (ms - blinkState.nextBlink) / blinkDuration;
-            
-            let value = 0;
-            if (progress < 0.5) value = progress * 2;
-            else if (progress < 1.0) value = 2 - progress * 2;
-            else {
-                value = 0;
-                setBlinkState({ isBlinking: false, nextBlink: ms + 2000 + Math.random() * 4000 });
+            const blinkDuration = 150;
+            const progress = (t * 1000 - blinkState.nextBlink) / blinkDuration;
+            let value = progress < 0.5 ? progress * 2 : (progress < 1.0 ? 2 - progress * 2 : 0);
+            if (progress >= 1.0) {
+              setBlinkState({ isBlinking: false, nextBlink: t * 1000 + 2000 + Math.random() * 4000 });
             }
-
             ['eyeBlinkLeft', 'eyeBlinkRight', 'eyesClosed', 'blink'].forEach(name => {
                 const idx = headMesh.morphTargetDictionary![name];
                 if (idx !== undefined) headMesh.morphTargetInfluences![idx] = value;
@@ -148,77 +150,44 @@ export const Avatar: React.FC<AvatarProps> = ({ url, audioLevel, onControlsReady
         }
     }
 
-    // --- Body & Arm Logic ---
-    const isTalking = audioLevel > 0.05;
-    const talkIntensity = MathUtils.lerp(0, isTalking ? audioLevel : 0, 0.1);
-    
-    // Helper to get initial rotation
-    const getInit = (name: string) => initialRotations.current[name];
+    const isAnyAnimPlaying = names.some(n => actions[n]?.isRunning() && actions[n]!.getEffectiveWeight() > 0.1);
 
-    // Spine Breathing
-    if (bones.spine && getInit('spine')) {
-        const init = getInit('spine')!;
-        bones.spine.rotation.x = init.x + Math.sin(t * 1.5) * 0.03;
-        bones.spine.rotation.y = init.y + Math.cos(t * 1.5 * 0.5) * 0.03;
-    }
+    if (!isAnyAnimPlaying && !isDebuggingBones) {
+        const LERP_SPEED = 0.1;
+        const breath = Math.sin(t * 1.5);
 
-    // Arm Gestures
-    if (talkIntensity > 0.01) {
-        // Multipliers
-        const armAmp = 0.5; // Shoulder lift/sway
-        const foreArmAmp = 0.8; // Hand wave
-
-        // Right Arm (Dominant)
-        if (bones.rightArm && getInit('rightArm')) {
-            const init = getInit('rightArm')!;
-            // Lift Z (up), Rotate X (forward/back)
-            bones.rightArm.rotation.z = MathUtils.lerp(bones.rightArm.rotation.z, init.z - 0.5 * talkIntensity, 0.1);
-            bones.rightArm.rotation.x = MathUtils.lerp(bones.rightArm.rotation.x, init.x + 0.2 * talkIntensity, 0.1);
+        if (bones.leftArm) {
+          bones.leftArm.rotation.x = MathUtils.lerp(bones.leftArm.rotation.x, MathUtils.degToRad(61), LERP_SPEED);
+          bones.leftArm.rotation.y = MathUtils.lerp(bones.leftArm.rotation.y, MathUtils.degToRad(-20), LERP_SPEED);
+          bones.leftArm.rotation.z = MathUtils.lerp(bones.leftArm.rotation.z, MathUtils.degToRad(-8), LERP_SPEED);
         }
-        if (bones.rightForeArm && getInit('rightForeArm')) {
-            const init = getInit('rightForeArm')!;
-            // Wave
-            const wave = Math.sin(t * 8) * foreArmAmp * talkIntensity;
-            bones.rightForeArm.rotation.x = MathUtils.lerp(bones.rightForeArm.rotation.x, init.x - 0.5 - Math.abs(wave), 0.1);
-        }
-
-        // Left Arm (Secondary)
-        if (bones.leftArm && getInit('leftArm')) {
-            const init = getInit('leftArm')!;
-            bones.leftArm.rotation.z = MathUtils.lerp(bones.leftArm.rotation.z, init.z + 0.3 * talkIntensity, 0.1);
-        }
-        if (bones.leftForeArm && getInit('leftForeArm')) {
-            const init = getInit('leftForeArm')!;
-            const wave = Math.cos(t * 6) * foreArmAmp * 0.5 * talkIntensity;
-            bones.leftForeArm.rotation.x = MathUtils.lerp(bones.leftForeArm.rotation.x, init.x - 0.3 - Math.abs(wave), 0.1);
+        if (bones.leftForeArm) {
+            bones.leftForeArm.rotation.z = MathUtils.lerp(bones.leftForeArm.rotation.z, MathUtils.degToRad(15), LERP_SPEED);
         }
         
-        // Head Emphasis
-        if (bones.head && getInit('head')) {
-            const init = getInit('head')!;
-            bones.head.rotation.x = MathUtils.lerp(bones.head.rotation.x, init.x + Math.sin(t * 10) * 0.1 * talkIntensity, 0.1);
+        if (bones.rightArm) {
+          bones.rightArm.rotation.x = MathUtils.lerp(bones.rightArm.rotation.x, MathUtils.degToRad(61), LERP_SPEED);
+          bones.rightArm.rotation.y = MathUtils.lerp(bones.rightArm.rotation.y, MathUtils.degToRad(20), LERP_SPEED);
+          bones.rightArm.rotation.z = MathUtils.lerp(bones.rightArm.rotation.z, MathUtils.degToRad(14), LERP_SPEED);
+        }
+        if (bones.rightForeArm) {
+            bones.rightForeArm.rotation.z = MathUtils.lerp(bones.rightForeArm.rotation.z, MathUtils.degToRad(-15), LERP_SPEED);
         }
 
-    } else {
-        // Return to breathing idle
-        const resetBone = (bone: Bone | null, name: string, offsetZ = 0) => {
-            if (bone && getInit(name)) {
-                const init = getInit(name)!;
-                // Add slight breathing motion to arms even when idle
-                bone.rotation.z = MathUtils.lerp(bone.rotation.z, init.z + offsetZ + Math.sin(t) * 0.02, 0.05);
-                bone.rotation.x = MathUtils.lerp(bone.rotation.x, init.x, 0.05);
-                bone.rotation.y = MathUtils.lerp(bone.rotation.y, init.y, 0.05);
-            }
-        };
-
-        resetBone(bones.rightArm, 'rightArm');
-        resetBone(bones.rightForeArm, 'rightForeArm');
-        resetBone(bones.leftArm, 'leftArm');
-        resetBone(bones.leftForeArm, 'leftForeArm');
+        if (bones.spine) {
+             bones.spine.rotation.x = MathUtils.lerp(bones.spine.rotation.x, breath * 0.02, LERP_SPEED);
+             bones.spine.rotation.y = MathUtils.lerp(bones.spine.rotation.y, Math.sin(t * 0.5) * 0.02, LERP_SPEED);
+        }
         
-        if (bones.head && getInit('head')) {
-             const init = getInit('head')!;
-             bones.head.rotation.x = MathUtils.lerp(bones.head.rotation.x, init.x, 0.1);
+        if (bones.head) {
+             let targetX = Math.sin(t * 0.3) * 0.02;
+             let targetY = Math.sin(t * 0.2) * 0.05;
+             if (isTalking) {
+                 targetX += Math.sin(t * 12) * 0.01;
+                 targetY += Math.sin(t * 8) * 0.01; 
+             }
+             bones.head.rotation.x = MathUtils.lerp(bones.head.rotation.x, targetX, LERP_SPEED);
+             bones.head.rotation.y = MathUtils.lerp(bones.head.rotation.y, targetY, LERP_SPEED);
         }
     }
   });
