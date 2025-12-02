@@ -131,7 +131,7 @@ export const Avatar: React.FC<AvatarProps> = ({ url, audioLevel, onControlsReady
         const mouthTargets = ['viseme_aa', 'jawOpen', 'mouthOpen', 'mouth_open'];
         const targetIndex = mouthTargets.map(name => headMesh.morphTargetDictionary![name]).find(i => i !== undefined);
         if (targetIndex !== undefined) {
-            headMesh.morphTargetInfluences[targetIndex] = MathUtils.lerp(headMesh.morphTargetInfluences[targetIndex], intensity * 0.8, 0.4);
+            headMesh.morphTargetInfluences[targetIndex] = MathUtils.lerp(headMesh.morphTargetInfluences[targetIndex], intensity * 1.2, 0.4);
         }
 
         // --- Default Smile Expression ---
