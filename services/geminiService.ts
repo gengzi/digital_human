@@ -91,8 +91,8 @@ export class GeminiService {
       });
       const responseText = response.text || "I'm not sure how to respond to that.";
 
-      // 2. Generate Audio (TTS) for the response so the avatar speaks
-      this.generateTTS(responseText);
+      // 2. Generate Audio (TTS) for the response and wait for it to complete
+      await this.generateTTS(responseText);
 
       return responseText;
     } catch (error) {
@@ -221,7 +221,7 @@ export class GeminiService {
         const rms = Math.sqrt(sum / dataArray.length);
         
         // Boost signal for clearer lip movement (clamped 0-1)
-        this.onAudioData(Math.min(1, rms * 4));
+        this.onAudioData(Math.min(1, rms * 8));
       } else {
         this.onAudioData(0);
       }

@@ -66,17 +66,17 @@ export const Avatar: React.FC<AvatarProps> = ({ url, audioLevel, onControlsReady
   useEffect(() => {
     // --- Set Initial Relaxed Pose to prevent T-Pose flash ---
     if (bones.leftArm) {
-      bones.leftArm.rotation.x = MathUtils.degToRad(45);
+      bones.leftArm.rotation.x = MathUtils.degToRad(61);
       bones.leftArm.rotation.y = MathUtils.degToRad(-20);
-      bones.leftArm.rotation.z = MathUtils.degToRad(20);
+      bones.leftArm.rotation.z = MathUtils.degToRad(-8);
     }
     if (bones.leftForeArm) {
       bones.leftForeArm.rotation.z = MathUtils.degToRad(15);
     }
     if (bones.rightArm) {
-      bones.rightArm.rotation.x = MathUtils.degToRad(45);
+      bones.rightArm.rotation.x = MathUtils.degToRad(61);
       bones.rightArm.rotation.y = MathUtils.degToRad(20);
-      bones.rightArm.rotation.z = MathUtils.degToRad(-20);
+      bones.rightArm.rotation.z = MathUtils.degToRad(14);
     }
     if (bones.rightForeArm) {
       bones.rightForeArm.rotation.z = MathUtils.degToRad(-15);
@@ -127,12 +127,23 @@ export const Avatar: React.FC<AvatarProps> = ({ url, audioLevel, onControlsReady
     const isTalking = intensity > 0.05;
 
     if (headMesh?.morphTargetDictionary && headMesh.morphTargetInfluences) {
+        // --- Lip Sync ---
         const mouthTargets = ['viseme_aa', 'jawOpen', 'mouthOpen', 'mouth_open'];
         const targetIndex = mouthTargets.map(name => headMesh.morphTargetDictionary![name]).find(i => i !== undefined);
         if (targetIndex !== undefined) {
             headMesh.morphTargetInfluences[targetIndex] = MathUtils.lerp(headMesh.morphTargetInfluences[targetIndex], intensity * 0.8, 0.4);
         }
 
+        // --- Default Smile Expression ---
+        const smileTargets = ['mouthSmile', 'mouthSmileLeft', 'mouthSmileRight', 'smile'];
+        smileTargets.forEach(name => {
+            const idx = headMesh.morphTargetDictionary![name];
+            if (idx !== undefined) {
+                headMesh.morphTargetInfluences![idx] = MathUtils.lerp(headMesh.morphTargetInfluences![idx], 0.4, 0.1);
+            }
+        });
+
+        // --- Blinking ---
         if (!blinkState.isBlinking && t * 1000 > blinkState.nextBlink) {
             setBlinkState(prev => ({ ...prev, isBlinking: true }));
         }
@@ -155,6 +166,7 @@ export const Avatar: React.FC<AvatarProps> = ({ url, audioLevel, onControlsReady
     if (!isAnyAnimPlaying && !isDebuggingBones) {
         const LERP_SPEED = 0.1;
         const breath = Math.sin(t * 1.5);
+        const gesture = Math.sin(t * 0.4) * 0.1; // Slow, subtle hand gesture
 
         if (bones.leftArm) {
           bones.leftArm.rotation.x = MathUtils.lerp(bones.leftArm.rotation.x, MathUtils.degToRad(61), LERP_SPEED);
@@ -162,7 +174,7 @@ export const Avatar: React.FC<AvatarProps> = ({ url, audioLevel, onControlsReady
           bones.leftArm.rotation.z = MathUtils.lerp(bones.leftArm.rotation.z, MathUtils.degToRad(-8), LERP_SPEED);
         }
         if (bones.leftForeArm) {
-            bones.leftForeArm.rotation.z = MathUtils.lerp(bones.leftForeArm.rotation.z, MathUtils.degToRad(15), LERP_SPEED);
+            bones.leftForeArm.rotation.z = MathUtils.lerp(bones.leftForeArm.rotation.z, MathUtils.degToRad(15) + gesture, LERP_SPEED);
         }
         
         if (bones.rightArm) {
@@ -171,7 +183,7 @@ export const Avatar: React.FC<AvatarProps> = ({ url, audioLevel, onControlsReady
           bones.rightArm.rotation.z = MathUtils.lerp(bones.rightArm.rotation.z, MathUtils.degToRad(14), LERP_SPEED);
         }
         if (bones.rightForeArm) {
-            bones.rightForeArm.rotation.z = MathUtils.lerp(bones.rightForeArm.rotation.z, MathUtils.degToRad(-15), LERP_SPEED);
+            bones.rightForeArm.rotation.z = MathUtils.lerp(bones.rightForeArm.rotation.z, MathUtils.degToRad(-15) - gesture, LERP_SPEED);
         }
 
         if (bones.spine) {
