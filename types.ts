@@ -31,6 +31,6 @@ export interface BoneControl {
 }
 
 export type Background = {
-  type: 'color' | 'image' | 'hdri';
+  type: 'color' | 'image' | 'hdri' | 'gradient';
   value: string;
 };

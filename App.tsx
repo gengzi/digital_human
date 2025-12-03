@@ -1,13 +1,21 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { GeminiService } from './services/geminiService';
 import { ControlPanel } from './components/ControlPanel';
+import { BackgroundPanel } from './components/BackgroundPanel';
 import { DigitalHuman } from './components/DigitalHuman';
 import { ConnectionState, Message, AnimationControl, MorphTargetControl, BoneControl, Background } from './types';
 
 export default function App() {
-  const [modelUrl, setModelUrl] = useState<string | null>(null);
-  // Fixed background, no changing functionality
-  const [background] = useState<Background>({ type: 'color', value: '#f0e6d2' });
+  // Use local default.glb file from public folder
+  const [modelUrl, setModelUrl] = useState<string | null>('/default.glb');
+  
+  // Default to a fresh bright gradient background
+  const [background, setBackground] = useState<Background>({ 
+    type: 'gradient', 
+    value: 'linear-gradient(120deg, #84fab0 0%, #8fd3f4 100%)' 
+  });
+  
+  const [isBgPanelOpen, setIsBgPanelOpen] = useState(false);
 
   const [connectionState, setConnectionState] = useState<ConnectionState>(ConnectionState.DISCONNECTED);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -62,6 +70,7 @@ export default function App() {
     const file = e.target.files?.[0];
     if (file) {
       const currentUrl = modelUrl;
+      // Only revoke if it was a blob url we created, not the default string
       if (currentUrl && currentUrl.startsWith('blob:')) {
           URL.revokeObjectURL(currentUrl);
       }
@@ -114,7 +123,6 @@ export default function App() {
     }
   };
 
-  // Helper function to guarantee safe rendering of message content
   const renderSafeMessage = (content: any): string => {
       if (content === null || content === undefined) return '';
       if (typeof content === 'string') return content;
@@ -143,17 +151,30 @@ export default function App() {
 
       <div className="absolute inset-0 z-10 pointer-events-none flex flex-col justify-between p-4 md:p-6">
         
-        <div className="flex justify-between items-start pointer-events-auto">
-          <div className="relative bg-gray-900/80 backdrop-blur p-3 rounded-lg border border-gray-700 shadow-xl">
-             <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">
+        <div className="flex justify-between items-start pointer-events-auto relative">
+          <div className="relative bg-gray-900/90 backdrop-blur p-4 rounded-xl border border-gray-700 shadow-2xl z-20">
+             <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500 mb-3">
                Gemini 3D 数字人
              </h1>
-             <div className="mt-2 flex gap-2">
+             <div className="flex gap-2">
                 <input type="file" accept=".glb,.gltf" ref={fileInputRef} className="hidden" onChange={handleFileUpload} />
-                <button onClick={() => fileInputRef.current?.click()} className="text-xs bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded transition">
-                  <i className="fas fa-upload mr-1"></i> 更换模型
+                <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded-md text-xs font-medium transition-colors border border-gray-600">
+                  <i className="fas fa-upload text-blue-400"></i> 模型
+                </button>
+                <button 
+                  onClick={() => setIsBgPanelOpen(!isBgPanelOpen)} 
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-colors border border-gray-600 ${isBgPanelOpen ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600'}`}
+                >
+                  <i className="fas fa-image text-purple-400"></i> 背景
                 </button>
              </div>
+             
+             {isBgPanelOpen && (
+               <BackgroundPanel 
+                  onBackgroundChange={setBackground} 
+                  onClose={() => setIsBgPanelOpen(false)} 
+               />
+             )}
           </div>
           
           <div className="pointer-events-auto">

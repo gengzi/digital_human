@@ -4,16 +4,6 @@ import { useGLTF, useAnimations } from '@react-three/drei';
 import { SkinnedMesh, Bone, MathUtils } from 'three';
 import { AnimationControl, MorphTargetControl, BoneControl } from '../types';
 
-// Fix for missing R3F JSX types
-declare global {
-  namespace JSX {
-    interface IntrinsicElements {
-      group: any;
-      primitive: any;
-    }
-  }
-}
-
 interface AvatarProps {
   url: string;
   audioLevel: number; // 0 to 1
